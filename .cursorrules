@@ -1,9 +1,0 @@
-# shadcn instructions
-
-Use the latest version of Shadcn to install new components, like this command to add a button component:
-
-```bash
-pnpx shadcn@latest add button
-```
-
-The tanstack query or react query is already setup for this project. So don't do the setup again.
