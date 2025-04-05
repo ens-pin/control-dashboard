@@ -2,6 +2,7 @@
 import { useState, type ChangeEvent, type FormEvent } from 'react';
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { NodeCount } from './NodeCount';
+import { HostedUsers } from './HostedUsers';
 
 
 interface Node {
@@ -279,6 +280,7 @@ export function AddNodeTab() {
                     <div className="p-4 text-center text-gray-400">No nodes available</div>
                 )}
             </div>
+            <HostedUsers/>
         </div>
     );
 } 
