@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import BubbleChart from "./BubbleChart";
 
 interface HostedUser {
@@ -14,42 +14,20 @@ interface HostedUsersResponse {
 }
 
 export default function HostedUsersBubbleChart() {
-  const [users, setUsers] = useState<HostedUser[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    fetchHostedUsers();
-  }, []);
-
-  const fetchHostedUsers = async () => {
-    setIsLoading(true);
-    setError(null);
-    
-    try {
-      const response = await fetch('/api/hosted');
+  const { data, isLoading, error, refetch } = useQuery<HostedUsersResponse>({
+    queryKey: ['hosted-users'],
+    queryFn: async () => {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/hosted`);
       if (!response.ok) {
         throw new Error(`Failed to fetch hosted users: ${response.status}`);
       }
-      
-      const data: HostedUsersResponse = await response.json();
-      
-      if (data && data.users) {
-        setUsers(data.users);
-      } else {
-        setUsers([]);
-      }
-    } catch (err) {
-      console.error('Error fetching hosted users:', err);
-      setError(err instanceof Error ? err.message : 'Unknown error occurred');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+      return response.json();
+    },
+  });
 
   // Transform user data to bubble chart format
   const getBubbleData = () => {
-    if (!users.length) return [];
+    if (!data?.users?.length) return [];
 
     // Format file size - KB if less than 1000KB, MB otherwise
     const formatFileSize = (bytes: number) => {
@@ -85,7 +63,7 @@ export default function HostedUsersBubbleChart() {
       return colors[index % colors.length];
     };
 
-    return users.map((user, index) => {
+    return data.users.map((user, index) => {
       const fileSizeMB = bytesToMB(user.file_size);
       return {
         label: `${user.name} (${formatFileSize(user.file_size)})`,
@@ -109,10 +87,10 @@ export default function HostedUsersBubbleChart() {
     return (
       <div className="p-4 text-center">
         <div className="mb-6 p-3 bg-red-900/30 border border-red-700 rounded-md">
-          <p className="text-red-400">{error}</p>
+          <p className="text-red-400">{error instanceof Error ? error.message : 'An error occurred'}</p>
         </div>
         <button 
-          onClick={fetchHostedUsers}
+          onClick={() => refetch()}
           className="px-4 py-2 text-sm bg-gray-800 text-gray-300 rounded-md hover:bg-gray-700"
         >
           Try Again
@@ -128,7 +106,7 @@ export default function HostedUsersBubbleChart() {
       <div className="flex justify-between items-center mb-6">
         <h3 className="text-2xl font-semibold text-gray-300">Hosted Users Visualization</h3>
         <button 
-          onClick={fetchHostedUsers}
+          onClick={() => refetch()}
           className="px-4 py-2 text-sm bg-gray-800 text-gray-300 rounded-md hover:bg-gray-700"
         >
           Refresh

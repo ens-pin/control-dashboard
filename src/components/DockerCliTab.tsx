@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect, type KeyboardEvent, memo } from 'react';
 
 const DockerCLIComponent = memo(() => {
@@ -17,7 +16,7 @@ const DockerCLIComponent = memo(() => {
     const executeCommand = async (cmd: string) => {
         try {
             setIsLoading(true);
-            const response = await fetch('/api/docker', {
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/docker`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

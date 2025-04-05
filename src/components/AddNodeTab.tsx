@@ -1,7 +1,7 @@
 'use client';
-import { useState, type ChangeEvent, type FormEvent, useEffect } from 'react';
+import { useState, type ChangeEvent, type FormEvent } from 'react';
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { NodeCount } from './NodeCount';
-import { HostedUsers } from './HostedUsers';
 
 
 interface Node {
@@ -12,19 +12,91 @@ interface Node {
     usage?: string;
 }
 
+interface NodesResponse {
+    message: string;
+    nodes: Node[];
+}
+
 export function AddNodeTab() {
     const [nodeName, setNodeName] = useState('');
     const [nodeUrl, setNodeUrl] = useState('');
-    const [isAdding, setIsAdding] = useState(false);
     const [nodeAdded, setNodeAdded] = useState(false);
     const [addMessage, setAddMessage] = useState('');
-    const [nodes, setNodes] = useState<Node[]>([]);
-    const [isLoading, setIsLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
     const [deletingNodeId, setDeletingNodeId] = useState<string | null>(null);
+    const queryClient = useQueryClient();
 
-    // API routes
-    const API_NODES_ROUTE = '/api/nodes';
+    // Query for fetching nodes
+    const { data, isLoading, error, refetch } = useQuery<NodesResponse>({
+        queryKey: ['nodes'],
+        queryFn: async () => {
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/nodes`);
+            if (!response.ok) {
+                throw new Error(`Failed to fetch nodes: ${response.status}`);
+            }
+            const data = await response.json();
+            
+            // Fetch usage data for each node
+            if (data.nodes) {
+                const nodesWithUsage = await Promise.all(
+                    data.nodes.map(async (node: Node) => {
+                        try {
+                            const usageResponse = await fetch(`${import.meta.env.VITE_API_URL}/nodes/${node.id}?usage=true`);
+                            if (usageResponse.ok) {
+                                const usageData = await usageResponse.json();
+                                return { ...node, usage: usageData.usage };
+                            }
+                            return node;
+                        } catch (err) {
+                            console.error(`Error fetching usage for node ${node.id}:`, err);
+                            return node;
+                        }
+                    })
+                );
+                return { ...data, nodes: nodesWithUsage };
+            }
+            return data;
+        },
+    });
+
+    // Mutation for adding a node
+    const addNodeMutation = useMutation({
+        mutationFn: async (formData: FormData) => {
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/nodes`, {
+                method: 'POST',
+                body: formData,
+            });
+            if (!response.ok) {
+                throw new Error(`Failed to add node: ${response.status}`);
+            }
+            return response.json();
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['nodes'] });
+            setNodeAdded(true);
+            setAddMessage(`IPFS Node "${nodeName}" added successfully!`);
+            setNodeName('');
+            setNodeUrl('');
+        },
+        onError: (error) => {
+            setAddMessage(error instanceof Error ? error.message : 'Failed to add node');
+        },
+    });
+
+    // Mutation for deleting a node
+    const deleteNodeMutation = useMutation({
+        mutationFn: async (id: string) => {
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/nodes/${id}`, {
+                method: 'DELETE',
+            });
+            if (!response.ok) {
+                throw new Error(`Failed to delete node: ${response.status}`);
+            }
+            return response.json();
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['nodes'] });
+        },
+    });
 
     // Helper function to format storage values
     const formatStorage = (usage: string) => {
@@ -63,53 +135,6 @@ export function AddNodeTab() {
         }
     };
 
-    // Fetch all nodes on component mount
-    useEffect(() => {
-        fetchNodes();
-    }, []);
-
-    // Function to fetch all nodes
-    const fetchNodes = async () => {
-        setIsLoading(true);
-        setError(null);
-        
-        try {
-            const response = await fetch(API_NODES_ROUTE);
-            if (!response.ok) {
-                throw new Error(`Failed to fetch nodes: ${response.status}`);
-            }
-            const data = await response.json();
-            // The API returns data in the format: { message: string, nodes: Node[] }
-            if (data && data.nodes) {
-                // Fetch usage data for each node
-                const nodesWithUsage = await Promise.all(
-                    data.nodes.map(async (node: Node) => {
-                        try {
-                            const usageResponse = await fetch(`${API_NODES_ROUTE}/${node.id}?usage=true`);
-                            if (usageResponse.ok) {
-                                const usageData = await usageResponse.json();
-                                return { ...node, usage: usageData.usage };
-                            }
-                            return node;
-                        } catch (err) {
-                            console.error(`Error fetching usage for node ${node.id}:`, err);
-                            return node;
-                        }
-                    })
-                );
-                setNodes(nodesWithUsage);
-            } else {
-                setNodes([]);
-            }
-            console.log(data);
-        } catch (err) {
-            console.error('Error fetching nodes:', err);
-            setError(err instanceof Error ? err.message : 'Unknown error occurred');
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
     // Handle individual field changes with proper typing
     const handleNodeNameChange = (e: ChangeEvent<HTMLInputElement>) => setNodeName(e.target.value);
     const handleNodeUrlChange = (e: ChangeEvent<HTMLInputElement>) => setNodeUrl(e.target.value);
@@ -117,62 +142,21 @@ export function AddNodeTab() {
     // Handle form submission with proper typing
     const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
         e.preventDefault();
-        setIsAdding(true);
-        setAddMessage('');
         setNodeAdded(false);
+        setAddMessage('');
 
-        try {
-            // Create FormData object to handle form submission
-            const formData = new FormData();
-            formData.append('name', nodeName);
-            formData.append('url', nodeUrl);
+        const formData = new FormData();
+        formData.append('name', nodeName);
+        formData.append('url', nodeUrl);
 
-            const response = await fetch(API_NODES_ROUTE, {
-                method: 'POST',
-                body: formData,
-            });
-
-            if (!response.ok) {
-                throw new Error(`Failed to add node: ${response.status}`);
-            }
-
-            // const data = await response.json();
-            setNodeAdded(true);
-            setAddMessage(`IPFS Node "${nodeName}" added successfully!`);
-            
-            // Refresh the nodes list
-            fetchNodes();
-            
-            // Clear the form
-            setNodeName('');
-            setNodeUrl('');
-        } catch (err) {
-            console.error('Error adding node:', err);
-            setAddMessage(err instanceof Error ? err.message : 'Failed to add node');
-        } finally {
-            setIsAdding(false);
-        }
+        addNodeMutation.mutate(formData);
     };
 
     // Handle node deletion
     const handleDeleteNode = async (id: string) => {
         setDeletingNodeId(id);
-        setError(null);
-        
         try {
-            const response = await fetch(`${API_NODES_ROUTE}/${id}`, {
-                method: 'DELETE',
-            });
-
-            if (!response.ok) {
-                throw new Error(`Failed to delete node: ${response.status}`);
-            }
-
-            // Refresh the nodes list after deletion
-            fetchNodes();
-        } catch (err) {
-            console.error('Error deleting node:', err);
-            setError(err instanceof Error ? err.message : 'Failed to delete node');
+            await deleteNodeMutation.mutateAsync(id);
         } finally {
             setDeletingNodeId(null);
         }
@@ -184,12 +168,19 @@ export function AddNodeTab() {
             <div className="mb-6">
                 <NodeCount />
             </div>
+            
             <div className="bg-black p-6 rounded-lg border border-gray-800">
-                <h3 className="text-2xl font-semibold mb-6 text-gray-300">Node Connection</h3>
+                <h3 className="text-2xl font-semibold mb-6 text-gray-300">Add New Node</h3>
                 
                 {nodeAdded && (
                     <div className="mb-6 p-3 bg-green-900/30 border border-green-700 rounded-md">
                         <p className="text-green-400">{addMessage}</p>
+                    </div>
+                )}
+                
+                {addNodeMutation.isError && (
+                    <div className="mb-6 p-3 bg-red-900/30 border border-red-700 rounded-md">
+                        <p className="text-red-400">{addMessage}</p>
                     </div>
                 )}
                 
@@ -202,10 +193,11 @@ export function AddNodeTab() {
                                 value={nodeName}
                                 onChange={handleNodeNameChange}
                                 className="w-full p-2 bg-gray-900 border border-gray-700 rounded-md text-white"
-                                placeholder="e.g. my-ipfs-node"
+                                placeholder="e.g. ipfs"
                                 required
+                                disabled={addNodeMutation.isPending}
                             />
-                            <p className="text-xs text-gray-500 mt-1">A friendly name for this IPFS node</p>
+                            <p className="text-xs text-gray-500 mt-1">This will be used as the Docker container name</p>
                         </div>
                         
                         <div>
@@ -217,42 +209,29 @@ export function AddNodeTab() {
                                 className="w-full p-2 bg-gray-900 border border-gray-700 rounded-md text-white"
                                 placeholder="e.g. http://localhost:5001"
                                 required
+                                disabled={addNodeMutation.isPending}
                             />
-                            <p className="text-xs text-gray-500 mt-1">The API URL of the IPFS node</p>
+                            <p className="text-xs text-gray-500 mt-1">The URL where the IPFS node is accessible</p>
                         </div>
                     </div>
                     
-                    <div className="flex justify-end pt-4">
+                    <div>
                         <button
                             type="submit"
-                            disabled={isAdding}
-                            className={`px-6 py-3 rounded-md font-medium ${
-                                isAdding
-                                    ? 'bg-blue-800 text-blue-200 cursor-not-allowed'
-                                    : 'bg-blue-600 text-white hover:bg-blue-700'
-                            }`}
+                            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                            disabled={addNodeMutation.isPending}
                         >
-                            {isAdding ? 'Adding Node...' : 'Add IPFS Node'}
+                            {addNodeMutation.isPending ? 'Adding Node...' : 'Add Node'}
                         </button>
                     </div>
                 </form>
-            </div>
-            
-            <div className="mt-8 bg-black p-6 rounded-lg border border-gray-800">
-                <h3 className="text-2xl font-semibold mb-6 text-gray-300">Connection Info</h3>
-                <div className="bg-gray-900 p-4 rounded-md overflow-x-auto">
-                    <pre className="text-gray-300 text-sm font-mono">
-{`Node: ${nodeName || '[Name your node]'}
-URL: ${nodeUrl || '[Enter node URL]'}`}
-                    </pre>
-                </div>
             </div>
 
             <div className="mt-8 bg-black p-6 rounded-lg border border-gray-800">
                 <div className="flex justify-between items-center mb-6">
                     <h3 className="text-2xl font-semibold text-gray-300">Available Nodes</h3>
                     <button 
-                        onClick={fetchNodes}
+                        onClick={() => refetch()}
                         className="px-4 py-2 text-sm bg-gray-800 text-gray-300 rounded-md hover:bg-gray-700"
                     >
                         Refresh
@@ -261,15 +240,15 @@ URL: ${nodeUrl || '[Enter node URL]'}`}
                 
                 {error && (
                     <div className="mb-6 p-3 bg-red-900/30 border border-red-700 rounded-md">
-                        <p className="text-red-400">{error}</p>
+                        <p className="text-red-400">{error instanceof Error ? error.message : 'An error occurred'}</p>
                     </div>
                 )}
                 
                 {isLoading ? (
                     <div className="p-4 text-center text-gray-400">Loading nodes...</div>
-                ) : nodes.length > 0 ? (
+                ) : data?.nodes?.length ? (
                     <div className="grid gap-4">
-                        {nodes.map((node) => (
+                        {data.nodes.map((node) => (
                             <div key={node.id} className="bg-gray-900 p-4 rounded-md border border-gray-800">
                                 <div className="flex justify-between items-start">
                                     <div>
@@ -285,32 +264,21 @@ URL: ${nodeUrl || '[Enter node URL]'}`}
                                             </div>
                                         )}
                                     </div>
-                                    <div className="flex flex-col space-y-2">
-                                        <div className="bg-green-900/30 px-2 py-1 rounded text-xs text-green-400">
-                                            Connected
-                                        </div>
-                                        <button
-                                            onClick={() => handleDeleteNode(node.id)}
-                                            disabled={deletingNodeId === node.id}
-                                            className={`px-2 py-1 rounded text-xs ${
-                                                deletingNodeId === node.id
-                                                    ? 'bg-red-900/30 text-red-300 cursor-not-allowed'
-                                                    : 'bg-red-900/30 text-red-400 hover:bg-red-800/40'
-                                            }`}
-                                        >
-                                            {deletingNodeId === node.id ? 'Deleting...' : 'Delete'}
-                                        </button>
-                                    </div>
+                                    <button
+                                        onClick={() => handleDeleteNode(node.id)}
+                                        className="px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        disabled={node.id === '0' || deletingNodeId === node.id || deleteNodeMutation.isPending}
+                                    >
+                                        {deletingNodeId === node.id ? 'Deleting...' : 'Delete'}
+                                    </button>
                                 </div>
                             </div>
                         ))}
                     </div>
                 ) : (
-                    <div className="p-4 text-center text-gray-400">No nodes found. Add your first IPFS node above.</div>
+                    <div className="p-4 text-center text-gray-400">No nodes available</div>
                 )}
             </div>
-            
-            <HostedUsers />
         </div>
     );
 } 

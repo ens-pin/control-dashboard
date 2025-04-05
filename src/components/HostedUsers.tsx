@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useQuery } from "@tanstack/react-query";
 
 interface HostedUser {
   name: string;
@@ -13,38 +13,16 @@ interface HostedUsersResponse {
 }
 
 export function HostedUsers() {
-  const [users, setUsers] = useState<HostedUser[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    fetchHostedUsers();
-  }, []);
-
-  const fetchHostedUsers = async () => {
-    setIsLoading(true);
-    setError(null);
-    
-    try {
-      const response = await fetch('/api/hosted');
+  const { data, isLoading, error, refetch } = useQuery<HostedUsersResponse>({
+    queryKey: ['hosted-users'],
+    queryFn: async () => {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/hosted`);
       if (!response.ok) {
         throw new Error(`Failed to fetch hosted users: ${response.status}`);
       }
-      
-      const data: HostedUsersResponse = await response.json();
-      
-      if (data && data.users) {
-        setUsers(data.users);
-      } else {
-        setUsers([]);
-      }
-    } catch (err) {
-      console.error('Error fetching hosted users:', err);
-      setError(err instanceof Error ? err.message : 'Unknown error occurred');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+      return response.json();
+    },
+  });
 
   // Format file size - KB if less than 1000KB, MB otherwise
   const formatFileSize = (bytes: number) => {
@@ -60,57 +38,63 @@ export function HostedUsers() {
     return megabytes.toFixed(2) + ' MB';
   };
 
+  if (isLoading) {
+    return <div className="p-4 text-center text-gray-400">Loading hosted users...</div>;
+  }
+
+  if (error) {
+    return (
+      <div className="p-4 text-center">
+        <div className="mb-6 p-3 bg-red-900/30 border border-red-700 rounded-md">
+          <p className="text-red-400">{error instanceof Error ? error.message : 'An error occurred'}</p>
+        </div>
+        <button 
+          onClick={() => refetch()}
+          className="px-4 py-2 text-sm bg-gray-800 text-gray-300 rounded-md hover:bg-gray-700"
+        >
+          Try Again
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="mt-8 bg-black p-6 rounded-lg border border-gray-800">
       <div className="flex justify-between items-center mb-6">
         <h3 className="text-2xl font-semibold text-gray-300">Hosted Users</h3>
         <button 
-          onClick={fetchHostedUsers}
+          onClick={() => refetch()}
           className="px-4 py-2 text-sm bg-gray-800 text-gray-300 rounded-md hover:bg-gray-700"
         >
           Refresh
         </button>
       </div>
       
-      {error && (
-        <div className="mb-6 p-3 bg-red-900/30 border border-red-700 rounded-md">
-          <p className="text-red-400">{error}</p>
-        </div>
-      )}
-      
-      {isLoading ? (
-        <div className="p-4 text-center text-gray-400">Loading hosted users...</div>
-      ) : users.length > 0 ? (
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-700">
-            <thead className="bg-gray-900">
-              <tr>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Name</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Node ID</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">IPFS Hash</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">File Size</th>
-              </tr>
-            </thead>
-            <tbody className="bg-gray-800 divide-y divide-gray-700">
-              {users.map((user, index) => (
-                <tr key={index} className="hover:bg-gray-700">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{user.name}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">
-                    <span className="font-mono">{user.node.substring(0, 8)}...{user.node.substring(user.node.length - 8)}</span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">
-                    <a href={`https://ipfs.io/ipfs/${user.hash}`} target="_blank" rel="noopener noreferrer" className="font-mono text-blue-400 hover:underline">
-                      {user.hash.substring(0, 8)}...{user.hash.substring(user.hash.length - 8)}
-                    </a>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">{formatFileSize(user.file_size)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      {data?.users?.length ? (
+        <div className="grid gap-4">
+          {data.users.map((user, index) => (
+            <div key={index} className="bg-gray-900 p-4 rounded-md border border-gray-800">
+              <div className="flex justify-between items-start">
+                <div>
+                  <h4 className="text-xl font-medium text-white">{user.name}</h4>
+                  <p className="text-gray-400 mt-1">Node: {user.node}</p>
+                  <p className="text-xs text-gray-500 mt-1">Hash: {user.hash}</p>
+                  <p className="text-xs text-gray-500 mt-1">Size: {formatFileSize(user.file_size)}</p>
+                </div>
+                <a
+                  href={`https://ipfs.io/ipfs/${user.hash}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
+                >
+                  View
+                </a>
+              </div>
+            </div>
+          ))}
         </div>
       ) : (
-        <div className="p-4 text-center text-gray-400">No hosted users found.</div>
+        <div className="p-4 text-center text-gray-400">No hosted users found</div>
       )}
     </div>
   );
