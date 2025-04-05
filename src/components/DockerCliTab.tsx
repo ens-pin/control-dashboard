@@ -1,10 +1,12 @@
 import { useState, useRef, useEffect, type KeyboardEvent, memo } from 'react';
+import { useLocalHostPort } from '@/hooks/useLocalHostPort';
 
 const DockerCLIComponent = memo(() => {
     const [command, setCommand] = useState('');
     const [commandHistory, setCommandHistory] = useState<string[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const historyContainerRef = useRef<HTMLDivElement>(null);
+    const { hostname, port } = useLocalHostPort();
 
     // Auto-scroll effect
     useEffect(() => {

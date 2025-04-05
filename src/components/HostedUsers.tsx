@@ -1,3 +1,4 @@
+import { useLocalHostPort } from "@/hooks/useLocalHostPort";
 import { useQuery } from "@tanstack/react-query";
 
 interface HostedUser {
@@ -13,6 +14,7 @@ interface HostedUsersResponse {
 }
 
 export function HostedUsers() {
+  const { hostname, port } = useLocalHostPort();
   const { data, isLoading, error, refetch } = useQuery<HostedUsersResponse>({
     queryKey: ['hosted-users'],
     queryFn: async () => {

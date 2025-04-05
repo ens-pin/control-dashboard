@@ -1,3 +1,4 @@
+import { useLocalHostPort } from "@/hooks/useLocalHostPort";
 import { useQuery } from "@tanstack/react-query";
 
 interface NodeCountResponse {
@@ -6,6 +7,7 @@ interface NodeCountResponse {
 }
 
 export function NodeCount() {
+    const { hostname, port } = useLocalHostPort();
     const { data, isLoading, error, refetch } = useQuery<NodeCountResponse>({
         queryKey: ['node-count'],
         queryFn: async () => {

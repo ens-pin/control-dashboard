@@ -7,8 +7,9 @@ export function useLocalHostPort() {
     useEffect(() => {
       const host = window.location.hostname;
       const port = 42069;
-      setHostname(host);
+      setHostname(`http://${host}`);
       setPort(port);
     }, []);
+
     return { hostname, port };
 }

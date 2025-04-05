@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import BubbleChart from "./BubbleChart";
+import { useLocalHostPort } from "@/hooks/useLocalHostPort";
 
 interface HostedUser {
   name: string;
@@ -14,6 +15,7 @@ interface HostedUsersResponse {
 }
 
 export default function HostedUsersBubbleChart() {
+  const { hostname, port } = useLocalHostPort();
   const { data, isLoading, error, refetch } = useQuery<HostedUsersResponse>({
     queryKey: ['hosted-users'],
     queryFn: async () => {
