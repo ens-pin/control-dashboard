@@ -9,7 +9,7 @@ export function NodeCount() {
     const { data, isLoading, error, refetch } = useQuery<NodeCountResponse>({
         queryKey: ['node-count'],
         queryFn: async () => {
-            const response = await fetch(`${import.meta.env.VITE_API_URL}/nodes/count`);
+            const response = await fetch(`${hostname}:${port}/nodes/count`);
             if (!response.ok) {
                 throw new Error(`Failed to fetch node count: ${response.status}`);
             }

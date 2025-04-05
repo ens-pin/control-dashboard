@@ -3,6 +3,7 @@ import { useState, type ChangeEvent, type FormEvent } from 'react';
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { NodeCount } from './NodeCount';
 import { HostedUsers } from './HostedUsers';
+import { useLocalHostPort } from '@/hooks/useLocalHostPort';
 
 
 interface Node {
@@ -25,12 +26,13 @@ export function AddNodeTab() {
     const [addMessage, setAddMessage] = useState('');
     const [deletingNodeId, setDeletingNodeId] = useState<string | null>(null);
     const queryClient = useQueryClient();
+    const { hostname, port } = useLocalHostPort();
 
     // Query for fetching nodes
     const { data, isLoading, error, refetch } = useQuery<NodesResponse>({
         queryKey: ['nodes'],
         queryFn: async () => {
-            const response = await fetch(`${import.meta.env.VITE_API_URL}/nodes`);
+            const response = await fetch(`${hostname}:${port}/nodes`);
             if (!response.ok) {
                 throw new Error(`Failed to fetch nodes: ${response.status}`);
             }
@@ -41,7 +43,7 @@ export function AddNodeTab() {
                 const nodesWithUsage = await Promise.all(
                     data.nodes.map(async (node: Node) => {
                         try {
-                            const usageResponse = await fetch(`${import.meta.env.VITE_API_URL}/nodes/${node.id}?usage=true`);
+                            const usageResponse = await fetch(`${hostname}:${port}/nodes/${node.id}?usage=true`);
                             if (usageResponse.ok) {
                                 const usageData = await usageResponse.json();
                                 return { ...node, usage: usageData.usage };
@@ -62,7 +64,7 @@ export function AddNodeTab() {
     // Mutation for adding a node
     const addNodeMutation = useMutation({
         mutationFn: async (formData: FormData) => {
-            const response = await fetch(`${import.meta.env.VITE_API_URL}/nodes`, {
+            const response = await fetch(`${hostname}:${port}/nodes`, {
                 method: 'POST',
                 body: formData,
             });
@@ -86,7 +88,7 @@ export function AddNodeTab() {
     // Mutation for deleting a node
     const deleteNodeMutation = useMutation({
         mutationFn: async (id: string) => {
-            const response = await fetch(`${import.meta.env.VITE_API_URL}/nodes/${id}`, {
+            const response = await fetch(`${hostname}:${port}/nodes/${id}`, {
                 method: 'DELETE',
             });
             if (!response.ok) {

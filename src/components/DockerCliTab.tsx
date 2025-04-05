@@ -16,7 +16,7 @@ const DockerCLIComponent = memo(() => {
     const executeCommand = async (cmd: string) => {
         try {
             setIsLoading(true);
-            const response = await fetch(`${import.meta.env.VITE_API_URL}/docker`, {
+            const response = await fetch(`${hostname}:${port}/docker`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

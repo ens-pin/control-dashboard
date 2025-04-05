@@ -17,7 +17,7 @@ export default function HostedUsersBubbleChart() {
   const { data, isLoading, error, refetch } = useQuery<HostedUsersResponse>({
     queryKey: ['hosted-users'],
     queryFn: async () => {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/hosted`);
+      const response = await fetch(`${hostname}:${port}/hosted`);
       if (!response.ok) {
         throw new Error(`Failed to fetch hosted users: ${response.status}`);
       }
