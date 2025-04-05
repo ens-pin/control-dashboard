@@ -39,11 +39,7 @@ const BubbleChart: React.FC<BubbleChartProps> = ({
   const svgRef = useRef<SVGSVGElement | null>(null);
   const [nodes, setNodes] = useState<BubbleNode[]>([]);
   const mouse = useRef({ x: width / 2, y: height / 2 });
-  const simulationRef = useRef<d3.Simulation<BubbleNode, undefined> | null>(
-    null
-  );
-  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
-
+  
   useEffect(() => {
     if (!data || data.length === 0) return;
 
