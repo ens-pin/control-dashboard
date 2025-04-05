@@ -1,15 +1,15 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useState } from 'react';
-import { OverviewTab } from "../components/OverviewTab";
-import { DockerCliTab } from "../components/DockerCliTab";
-import { SettingsTab } from "../components/SettingsTab";
-import { CreateNodeTab } from "../components/CreateNodeTab";
+import { OverviewTab } from "@/components/OverviewTab";
+import { DockerCliTab } from "@/components/DockerCliTab";
+import { SettingsTab } from "@/components/SettingsTab";
+import { AddNodeTab } from "@/components/AddNodeTab";
 
 export const Route = createFileRoute('/')({
-  component: App,
+  component: Dashboard,
 })
 
-function App() {
+function Dashboard() {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [activeTab, setActiveTab] = useState('overview');
 
@@ -24,7 +24,7 @@ function App() {
             case 'cli':
                 return <DockerCliTab />;
             case 'create-node':
-                return <CreateNodeTab />;
+                return <AddNodeTab />;
             case 'settings':
                 return <SettingsTab />;
             default:
@@ -52,7 +52,7 @@ function App() {
                                 className={`p-2 rounded cursor-pointer ${activeTab === 'create-node' ? 'text-white' : 'hover:bg-gray-900'}`}
                                 onClick={() => setActiveTab('create-node')}
                             >
-                                Create IPFS Node
+                                Add IPFS Node
                             </li>
                             <li 
                                 className={`p-2 rounded cursor-pointer ${activeTab === 'cli' ? 'text-white' : 'hover:bg-gray-900'}`}
